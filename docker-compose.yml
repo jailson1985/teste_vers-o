@@ -1,0 +1,64 @@
+version: "3.8"
+services:
+  # Contêiner Redis
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  # Contêiner Django (forecast)
+  forecast:
+    build: .
+    command: bash -c "python manage.py migrate && gunicorn forecast.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - .:/app  # Monta o diretório do projeto no contêiner
+      - "C:/Users/silma/Downloads/Projeto IFSC/versionne/forecast/file:/app/file"  # Mapeia a pasta contendo o arquivo
+
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=forecast.settings
+    networks:
+      - backend
+
+  # Contêiner Celery
+  celery:
+    build: .
+    command: celery -A forecast worker --loglevel=INFO --concurrency=4 --time-limit=1200
+    volumes:
+      - .:/app  # Monta o diretório do projeto no contêiner
+    depends_on:
+      - redis
+      - forecast
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=forecast.settings
+    networks:
+      - backend
+
+  # Contêiner Celery Beat (agendador de tarefas)
+  celery-beat:
+    build: .
+    command: celery -A forecast beat --loglevel=info
+    volumes:
+      - .:/app  # Monta o diretório do projeto no contêiner
+    depends_on:
+      - redis
+      - forecast
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=forecast.settings
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge

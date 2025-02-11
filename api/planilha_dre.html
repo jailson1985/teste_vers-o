@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilha DRE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-style/dist/xlsx-style.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+            color: #36425a;
+            font-size: 12px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .header img {
+            max-height: 70px;
+        }
+
+        .header h1 {
+            text-align: center;
+            color: #6b337b;
+            font-size: 20px;
+            flex-grow: 1;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #6b337b;
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        tr:hover {
+            background-color: #457b76;
+        }
+
+        h2, h3 {
+            color: #6b337b;
+            border-bottom: 2px solid #6b337b;
+            padding-bottom: 5px;
+            text-align: center;
+        }
+
+        button {
+            background-color: #46f4a3;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #649494;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="C:\Users\silma\Downloads\Projeto IFSC\versionne\forecast\file\versione.jpeg" alt="Logo">
+        <h1>Orçamento Empresarial</h1>
+    </div>
+
+    <div class="table-container" id="tables-container">
+        <!-- Tabelas serão inseridas aqui dinamicamente -->
+    </div>
+
+    <script>
+        // Variável global para armazenar os dados agrupados
+        let groupedData = {};
+
+        // Função para obter os dados da API
+        async function getApiData() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/get_forecast-ccusto/');
+                const data = await response.json(); // Converte a resposta para JSON
+                renderTablesByCompany(data); // Passa os dados para renderizar as tabelas
+            } catch (error) {
+                console.error('Erro ao obter dados da API:', error);
+            }
+        }
+
+        // Função para obter o nome do mês a partir do número
+        function getMonthName(monthNumber) {
+            const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            return months[(monthNumber - 1) % 12];
+        }
+
+        // Função para formatar os valores como R$ com vírgula no decimal e ponto no milhar
+        function formatCurrency(value) {
+            return `R$ ${new Intl.NumberFormat('pt-BR').format(value)}`;
+        }
+
+        // Função para processar os dados e renderizar tabelas separadas por empresa
+        function renderTablesByCompany(apiData) {
+            const container = document.getElementById("tables-container");
+            container.innerHTML = "";
+
+            // Agrupar os dados por empresa e descrição
+            groupedData = apiData.reduce((acc, item) => {
+                if (!acc[item.cd_empresa]) {
+                    acc[item.cd_empresa] = { receitas: {}, despesas: {} };
+                }
+
+                const itemWithValues = {
+                    ...item,
+                    valor_planejado_mes_1: parseFloat(item.valor_planejado_mes_1 || 0),
+                    valor_planejado_mes_2: parseFloat(item.valor_planejado_mes_2 || 0),
+                    valor_planejado_mes_3: parseFloat(item.valor_planejado_mes_3 || 0),
+                    valor_planejado_mes_4: parseFloat(item.valor_planejado_mes_4 || 0),
+                    valor_planejado_mes_5: parseFloat(item.valor_planejado_mes_5 || 0),
+                    valor_planejado_mes_6: parseFloat(item.valor_planejado_mes_6 || 0),
+                    valor_previsto_mes_1: parseFloat(item.valor_previsto_mes_1 || 0),
+                    valor_previsto_mes_2: parseFloat(item.valor_previsto_mes_2 || 0),
+                    valor_previsto_mes_3: parseFloat(item.valor_previsto_mes_3 || 0),
+                    valor_previsto_mes_4: parseFloat(item.valor_previsto_mes_4 || 0),
+                    valor_previsto_mes_5: parseFloat(item.valor_previsto_mes_5 || 0),
+                    valor_previsto_mes_6: parseFloat(item.valor_previsto_mes_6 || 0)
+                };
+
+                if (itemWithValues.valor_planejado_mes_1 >= 0 || itemWithValues.valor_previsto_mes_1 >= 0) {
+                    // Se for receita, agrupar pela descrição
+                    if (!acc[item.cd_empresa].receitas[item.descricao_conta_contabil]) {
+                        acc[item.cd_empresa].receitas[item.descricao_conta_contabil] = [];
+                    }
+                    acc[item.cd_empresa].receitas[item.descricao_conta_contabil].push(itemWithValues);
+                } else {
+                    // Se for despesa, agrupar pela descrição
+                    if (!acc[item.cd_empresa].despesas[item.descricao_conta_contabil]) {
+                        acc[item.cd_empresa].despesas[item.descricao_conta_contabil] = [];
+                    }
+                    acc[item.cd_empresa].despesas[item.descricao_conta_contabil].push(itemWithValues);
+                }
+
+                return acc;
+            }, {});
+
+            // Criar uma tabela para cada empresa
+            Object.keys(groupedData).forEach(companyId => {
+                const companyData = groupedData[companyId];
+
+                // Criar título para a empresa
+                const title = document.createElement("h2");
+                title.textContent = `Empresa ${companyId}`;
+                container.appendChild(title);
+
+                // Função para criar a tabela
+                function createTable(data, label) {
+                    if (Object.keys(data).length === 0) return;
+
+                    const table = document.createElement("table");
+                    const thead = document.createElement("thead");
+                    const tbody = document.createElement("tbody");
+
+                    // Cabeçalho da tabela
+                    thead.innerHTML = `
+                        <tr>
+                            <th rowspan="2">Descrição</th>
+                            <th rowspan="2">Ano</th>
+                            <th rowspan="2">Mês</th>
+                            <th colspan="2">Janeiro</th>
+                            <th colspan="2">Fevereiro</th>
+                            <th colspan="2">Março</th>
+                            <th colspan="2">Abril</th>
+                            <th colspan="2">Maio</th>
+                            <th colspan="2">Junho</th>
+                        </tr>
+                        <tr>
+                            <th>Planejado</th>
+                            <th>Previsto</th>
+                            <th>Planejado</th>
+                            <th>Previsto</th>
+                            <th>Planejado</th>
+                            <th>Previsto</th>
+                            <th>Planejado</th>
+                            <th>Previsto</th>
+                            <th>Planejado</th>
+                            <th>Previsto</th>
+                            <th>Planejado</th>
+                            <th>Previsto</th>
+                        </tr>
+                    `;
+
+                    // Linhas da tabela (descrições únicas)
+                    Object.keys(data).forEach(descricao => {
+                        const tr = document.createElement("tr");
+
+                        const descricaoCell = document.createElement("td");
+                        descricaoCell.textContent = descricao;
+                        tr.appendChild(descricaoCell);
+
+                        const anoCell = document.createElement("td");
+                        anoCell.textContent = data[descricao][0].ano;
+                        tr.appendChild(anoCell);
+
+                        const mesCell = document.createElement("td");
+                        mesCell.textContent = "Janeiro"; // Como exemplo de mês, pode ser ajustado conforme necessidade
+                        tr.appendChild(mesCell);
+
+                        // Somar os valores de Planejado e Previsto para cada mês
+                        [...Array(6).keys()].forEach(i => {
+                            const planejadoCell = document.createElement("td");
+                            const previstoCell = document.createElement("td");
+
+                            const sumPlanejado = data[descricao].reduce((acc, curr) => acc + curr[`valor_planejado_mes_${i + 1}`], 0);
+                            const sumPrevisto = data[descricao].reduce((acc, curr) => acc + curr[`valor_previsto_mes_${i + 1}`], 0);
+
+                            planejadoCell.textContent = formatCurrency(sumPlanejado);
+                            previstoCell.textContent = formatCurrency(sumPrevisto);
+
+                            tr.appendChild(planejadoCell);
+                            tr.appendChild(previstoCell);
+                        });
+
+                        tbody.appendChild(tr);
+                    });
+
+                    table.appendChild(thead);
+                    table.appendChild(tbody);
+                    container.appendChild(table);
+                }
+
+                // Criar tabelas para receitas e despesas
+                if (Object.keys(companyData.receitas).length > 0) {
+                    const receitasTitle = document.createElement("h3");
+                    receitasTitle.textContent = "Receitas";
+                    container.appendChild(receitasTitle);
+                    createTable(companyData.receitas, "Receitas");
+                }
+
+                if (Object.keys(companyData.despesas).length > 0) {
+                    const despesasTitle = document.createElement("h3");
+                    despesasTitle.textContent = "Despesas";
+                    container.appendChild(despesasTitle);
+                    createTable(companyData.despesas, "Despesas");
+                }
+            });
+        }
+
+        // Função para exportar para Excel com formatação
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+
+            // Itera sobre as empresas
+            Object.keys(groupedData).forEach(companyId => {
+                const companyData = groupedData[companyId];
+                const wsData = [];
+
+                // Cabeçalhos gerais
+                const cabecalhos = [
+                    ['Descrição', 'Ano', 'Mês', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho'],
+                    ['', '', '', 'Planejado', 'Previsto', 'Planejado', 'Previsto', 'Planejado', 'Previsto', 'Planejado', 'Previsto', 'Planejado', 'Previsto']
+                ];
+
+                wsData.push(...cabecalhos);
+
+                // Adiciona as receitas
+                wsData.push(['RECEITAS']); // Título para a seção de receitas
+                Object.keys(companyData.receitas).forEach(descricao => {
+                    const receita = companyData.receitas[descricao];
+                    let sums = Array(12).fill(0);
+
+                    receita.forEach(item => {
+                        for (let i = 0; i < 6; i++) {
+                            sums[i] += item[`valor_planejado_mes_${i + 1}`];
+                            sums[i + 6] += item[`valor_previsto_mes_${i + 1}`];
+                        }
+                    });
+
+                    wsData.push([descricao, receita[0].ano, "Janeiro", sums[0], sums[6], sums[1], sums[7], sums[2], sums[8], sums[3], sums[9], sums[4], sums[10], sums[5], sums[11]]);
+                });
+
+                // Linha vazia entre receitas e despesas
+                wsData.push([]); 
+
+                // Adiciona as despesas
+                wsData.push(['DESPESAS']); // Título para a seção de despesas
+                Object.keys(companyData.despesas).forEach(descricao => {
+                    const despesa = companyData.despesas[descricao];
+                    let sums = Array(12).fill(0);
+
+                    despesa.forEach(item => {
+                        for (let i = 0; i < 6; i++) {
+                            sums[i] += item[`valor_planejado_mes_${i + 1}`];
+                            sums[i + 6] += item[`valor_previsto_mes_${i + 1}`];
+                        }
+                    });
+
+                    wsData.push([descricao, despesa[0].ano, "Janeiro", sums[0], sums[6], sums[1], sums[7], sums[2], sums[8], sums[3], sums[9], sums[4], sums[10], sums[5], sums[11]]);
+                });
+
+                // Cria uma nova planilha para cada empresa com receitas e despesas
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                XLSX.utils.book_append_sheet(wb, ws, `Empresa ${companyId}`);
+            });
+
+            // Gerar e salvar o arquivo Excel
+            XLSX.writeFile(wb, "planilha_dre_por_empresa.xlsx");
+        }
+
+        // Botão para exportar
+        const exportButton = document.createElement("button");
+        exportButton.textContent = "Exportar para Excel";
+        exportButton.style.marginTop = "20px";
+        exportButton.style.backgroundColor = '#6b337b';
+        exportButton.style.color = '#FFFFFF';
+        exportButton.onclick = exportToExcel;
+        document.body.appendChild(exportButton);
+
+
+        // Chamada para pegar os dados e renderizar as tabelas
+        getApiData();
+    </script>
+</body>
+</html>
