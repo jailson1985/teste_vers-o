@@ -556,6 +556,20 @@ def previsao_arima_ccusto_task():
         data = ContaContabil.objects.all().values('cd_empresa', 'descricao_conta_contabil','desc_centro_custo', 'ano', 'mes', 'valor_realizado')
         df = pd.DataFrame(data)
         df['valor_realizado'] = df['valor_realizado'].astype(float)
+
+        # Garantir que 'valor_realizado' seja do tipo float, convertendo erros para NaN
+        df['valor_realizado'] = pd.to_numeric(df['valor_realizado'], errors='coerce')
+
+        # Identificar e corrigir 'Inf' (positivos e negativos) e 'NaN'
+        df['valor_realizado'].replace([float('inf'), -float('inf')], float('nan'), inplace=True)
+
+        # Substituir valores 'NaN' ou 'Inf' pela média da coluna específica para cada 'descricao_conta_contabil'
+        df['valor_realizado'] = df.groupby('descricao_conta_contabil')['valor_realizado'].transform(lambda x: x.fillna(x.mean()))
+
+        # Substituir valores zero pela média da coluna específica para cada 'descricao_conta_contabil'
+        df['valor_realizado'] = df.groupby('descricao_conta_contabil')['valor_realizado'].transform(lambda x: x.replace(0, x.mean()))
+
+
         df = corrigir_dados(df)
         df['data'] = pd.to_datetime(df[['ano', 'mes']].astype(str).agg('-'.join, axis=1), format='%Y-%m')
         df.set_index('data', inplace=True)

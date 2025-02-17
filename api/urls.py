@@ -8,6 +8,7 @@ from .views import (
     ModelForecastKeepListView,
     ModelForecastContabilListView,
     ModelForecastCcustoListView,
+    PrevisaoSARIMAXCCusto,
     VariacaoDolarAPIView,
 )
 
@@ -40,5 +41,6 @@ urlpatterns = [
     path('api/get_forecast-ccusto/', ModelForecastCcustoListView.as_view(), name='forecast-ccusto-list'),
     path('api/get_taxa_ipca/', IPCAAPIView.as_view(), name='ipca_api'),
     path('api/conta-contabil/analysis/', ContaContabilAnalysisAPIView.as_view(), name='conta-contabil-analysis'),
+    path('previsao/', PrevisaoSARIMAXCCusto.as_view(), name='previsao_sarimax_ccusto'),
 
 ]
